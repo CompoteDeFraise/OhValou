@@ -1,141 +1,169 @@
-import React, { useState, useEffect } from 'react';
-import { DoorClosed, Smartphone, Frown, RefreshCw } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Où est le portable de Valentine ?</title>
+    <!-- Importation de Tailwind CSS pour le style -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Importation de Lucide pour les icônes -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Quelques ajustements mineurs pour garantir que tout s'affiche bien */
+        body { font-family: sans-serif; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-6">
 
-export default function App() {
-  // --- ÉTAPE 1 : DÉFINITION DES DONNÉES DE L'ENQUÊTE ---
-  // Les options possibles. L'identifiant 2 est notre coupable.
-  const initialDoors = [
-    { id: 1, name: "Dans son sac" },
-    { id: 2, name: "En boite de nuit" },
-    { id: 3, name: "Chez Momoe et Pierre" },
-    { id: 4, name: "Avec son gros kebab devant les poubelles" }
-  ];
-
-  // --- ÉTAPE 2 : GESTION DE L'ÉTAT DU JEU ---
-  const [winningDoorId, setWinningDoorId] = useState(null);
-  const [selectedDoorId, setSelectedDoorId] = useState(null);
-  const [gameState, setGameState] = useState('playing'); // 'playing', 'won', 'lost'
-
-  // --- ÉTAPE 3 : LOGIQUE D'INITIALISATION TRUQUÉE ---
-  // Ici, le hasard n'existe plus. Valentine finit toujours en boîte.
-  const initGame = () => {
-    // La victoire est codée en dur sur l'ID 2 (En boite de nuit)
-    setWinningDoorId(2); 
-    setSelectedDoorId(null);
-    setGameState('playing');
-  };
-
-  useEffect(() => {
-    initGame();
-  }, []);
-
-  // --- ÉTAPE 4 : LOGIQUE DE CLIC ---
-  const handleDoorClick = (id) => {
-    if (gameState !== 'playing') return;
-
-    setSelectedDoorId(id);
-
-    // On vérifie si l'utilisateur a compris la psychologie de Valentine
-    if (id === winningDoorId) {
-      setGameState('won');
-    } else {
-      setGameState('lost');
-    }
-  };
-
-  // --- ÉTAPE 5 : COMMENTAIRES DÉSOBLIGEANTS ---
-  const getFeedbackMessage = () => {
-    if (gameState === 'playing') return "Valentine a encore perdu son précieux. Aide-la à le retrouver (même si on connaît tous la fin de l'histoire).";
-    if (gameState === 'won') return "Bingo. Évidemment qu'il était en boîte de nuit. C'était soit ça, soit dans le caniveau.";
-    if (gameState === 'lost') return "Sérieusement ? Tu pensais vraiment qu'elle l'avait rangé sagement ? Sois plus réaliste et recommence.";
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-6 font-sans">
-      
-      {/* En-tête */}
-      <div className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-600">
-          Où est le portable de Valentine ?
+    <!-- En-tête -->
+    <div class="text-center mb-12">
+        <h1 class="text-4xl md:text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-600">
+            Où est le portable de Valentine ?
         </h1>
-        <p className="text-lg text-slate-400 max-w-lg mx-auto">
-          {getFeedbackMessage()}
+        <p id="feedback-message" class="text-lg text-slate-400 max-w-lg mx-auto">
+            <!-- Le message sera injecté ici par JS -->
         </p>
-      </div>
-
-      {/* La Grille des Lieux Suspects */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 w-full max-w-3xl">
-        {initialDoors.map((door) => {
-          const isSelected = selectedDoorId === door.id;
-          const isWinner = door.id === winningDoorId;
-          const isGameOver = gameState !== 'playing';
-
-          // Style de base pour nos "portes"
-          let doorStyle = "bg-slate-800 border-slate-600 hover:border-pink-400 hover:bg-slate-700 cursor-pointer";
-          let Icon = DoorClosed;
-          let iconColor = "text-slate-400";
-
-          // Changement de style si le jeu est terminé
-          if (isGameOver) {
-            doorStyle = "cursor-default opacity-60"; // Désactivé
-            
-            if (isSelected) {
-              doorStyle = "opacity-100 shadow-xl scale-105 transition-transform duration-300 ";
-              if (isWinner) {
-                // Style de la victoire (Le portable est là)
-                doorStyle += "bg-emerald-900 border-emerald-500 shadow-emerald-900/50";
-                Icon = Smartphone;
-                iconColor = "text-emerald-400";
-              } else {
-                // Style de l'échec (Où tu as cliqué mais c'est faux)
-                doorStyle += "bg-rose-900 border-rose-500 shadow-rose-900/50";
-                Icon = Frown;
-                iconColor = "text-rose-400";
-              }
-            } else if (isWinner) {
-              // Révéler la vérité brutale même si on a cliqué ailleurs
-              doorStyle = "opacity-100 border-emerald-500/50 bg-emerald-900/30";
-              Icon = Smartphone;
-              iconColor = "text-emerald-500/50";
-            }
-          }
-
-          return (
-            <button
-              key={door.id}
-              onClick={() => handleDoorClick(door.id)}
-              disabled={isGameOver}
-              className={`relative flex flex-col items-center justify-center p-8 rounded-xl border-2 transition-all duration-200 group text-center ${doorStyle}`}
-            >
-              <Icon size={56} className={`${iconColor} mb-4 ${!isGameOver && 'group-hover:scale-110 transition-transform'}`} />
-              {/* Utilisation de text-lg pour que le texte du kebab tienne bien */}
-              <span className="text-lg md:text-xl font-semibold tracking-wide">
-                {door.name}
-              </span>
-              
-              {/* Effet bling-bling pour le portable retrouvé */}
-              {isGameOver && isSelected && isWinner && (
-                <span className="absolute -top-3 -right-3 flex h-8 w-8">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-8 w-8 bg-emerald-500 justify-center items-center">📱</span>
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Bouton pour répéter l'histoire */}
-      {gameState !== 'playing' && (
-        <button
-          onClick={initGame}
-          className="flex items-center gap-2 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-full font-bold transition-colors shadow-lg shadow-pink-600/20"
-        >
-          <RefreshCw size={20} />
-          Chercher à nouveau (en vain)
-        </button>
-      )}
-
     </div>
-  );
-}
+
+    <!-- La Grille des Lieux Suspects -->
+    <div id="doors-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 w-full max-w-3xl">
+        <!-- Les portes seront générées ici par JS -->
+    </div>
+
+    <!-- Bouton pour répéter l'histoire (Caché par défaut) -->
+    <button
+        id="reset-button"
+        onclick="initGame()"
+        class="hidden items-center gap-2 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-full font-bold transition-colors shadow-lg shadow-pink-600/20"
+    >
+        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+        Chercher à nouveau (en vain)
+    </button>
+
+    <script>
+        // --- ÉTAPE 1 : DÉFINITION DES DONNÉES DE L'ENQUÊTE ---
+        const initialDoors = [
+            { id: 1, name: "Dans son sac" },
+            { id: 2, name: "En boite de nuit" }, // Le coupable
+            { id: 3, name: "Chez Momoe et Pierre" },
+            { id: 4, name: "Avec son gros kebab devant les poubelles" }
+        ];
+
+        // --- ÉTAPE 2 : GESTION DE L'ÉTAT DU JEU ---
+        let winningDoorId = 2; // Codé en dur. Le destin est cruel.
+        let selectedDoorId = null;
+        let gameState = 'playing'; // 'playing', 'won', 'lost'
+
+        // --- ÉTAPE 3 : LOGIQUE DE CLIC ---
+        function handleDoorClick(id) {
+            if (gameState !== 'playing') return;
+
+            selectedDoorId = id;
+
+            if (id === winningDoorId) {
+                gameState = 'won';
+            } else {
+                gameState = 'lost';
+            }
+
+            render(); // On met à jour l'affichage
+        }
+
+        // --- ÉTAPE 4 : LOGIQUE D'INITIALISATION ---
+        function initGame() {
+            selectedDoorId = null;
+            gameState = 'playing';
+            render();
+        }
+
+        // --- ÉTAPE 5 : COMMENTAIRES DÉSOBLIGEANTS ---
+        function getFeedbackMessage() {
+            if (gameState === 'playing') return "Valentine a encore perdu son précieux. Aide-la à le retrouver (même si on connaît tous la fin de l'histoire).";
+            if (gameState === 'won') return "Bingo. Évidemment qu'il était en boîte de nuit. C'était soit ça, soit dans le caniveau.";
+            if (gameState === 'lost') return "Sérieusement ? Tu pensais vraiment qu'elle l'avait rangé sagement ? Sois plus réaliste et recommence.";
+        }
+
+        // --- ÉTAPE 6 : LE MOTEUR DE RENDU (Le cœur du système) ---
+        function render() {
+            // 1. Mise à jour du texte sarcastique
+            document.getElementById('feedback-message').textContent = getFeedbackMessage();
+
+            // 2. Gestion de l'affichage du bouton reset
+            const btnReset = document.getElementById('reset-button');
+            if (gameState !== 'playing') {
+                btnReset.classList.remove('hidden');
+                btnReset.classList.add('flex');
+            } else {
+                btnReset.classList.add('hidden');
+                btnReset.classList.remove('flex');
+            }
+
+            // 3. Rendu des portes
+            const container = document.getElementById('doors-container');
+            container.innerHTML = ''; // On vide le conteneur
+
+            initialDoors.forEach(door => {
+                const isSelected = selectedDoorId === door.id;
+                const isWinner = door.id === winningDoorId;
+                const isGameOver = gameState !== 'playing';
+
+                // Variables de style par défaut
+                let doorStyle = "bg-slate-800 border-slate-600 hover:border-pink-400 hover:bg-slate-700 cursor-pointer group-hover:scale-110";
+                let iconName = "door-closed";
+                let iconColor = "text-slate-400";
+                let pingEffect = "";
+
+                // Calcul du style si le jeu est terminé
+                if (isGameOver) {
+                    doorStyle = "cursor-default opacity-60"; // Désactivé par défaut
+                    
+                    if (isSelected) {
+                        doorStyle = "opacity-100 shadow-xl scale-105 transition-transform duration-300 ";
+                        if (isWinner) {
+                            doorStyle += "bg-emerald-900 border-emerald-500 shadow-emerald-900/50";
+                            iconName = "smartphone";
+                            iconColor = "text-emerald-400";
+                            pingEffect = `
+                                <span class="absolute -top-3 -right-3 flex h-8 w-8">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-8 w-8 bg-emerald-500 justify-center items-center">📱</span>
+                                </span>`;
+                        } else {
+                            doorStyle += "bg-rose-900 border-rose-500 shadow-rose-900/50";
+                            iconName = "frown";
+                            iconColor = "text-rose-400";
+                        }
+                    } else if (isWinner) {
+                        doorStyle = "opacity-100 border-emerald-500/50 bg-emerald-900/30";
+                        iconName = "smartphone";
+                        iconColor = "text-emerald-500/50";
+                    }
+                }
+
+                // Construction du code HTML de la porte
+                const buttonHTML = `
+                    <button
+                        onclick="handleDoorClick(${door.id})"
+                        ${isGameOver ? 'disabled' : ''}
+                        class="relative flex flex-col items-center justify-center p-8 rounded-xl border-2 transition-all duration-200 group text-center ${doorStyle}"
+                    >
+                        <i data-lucide="${iconName}" class="w-14 h-14 ${iconColor} mb-4 ${!isGameOver ? 'group-hover:scale-110 transition-transform' : ''}"></i>
+                        <span class="text-lg md:text-xl font-semibold tracking-wide">
+                            ${door.name}
+                        </span>
+                        ${pingEffect}
+                    </button>
+                `;
+                
+                container.innerHTML += buttonHTML;
+            });
+
+            // Demander à Lucide de transformer les balises <i> en vrais SVG
+            lucide.createIcons();
+        }
+
+        // On lance le jeu une première fois au chargement de la page
+        initGame();
+    </script>
+</body>
+</html>
