@@ -1,450 +1,141 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DevBoard Kanban</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .column-min-height { min-height: calc(100vh - 250px); }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .loading-overlay {
-            position: fixed;
-            inset: 0;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            transition: opacity 0.5s;
-        }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-900 overflow-hidden">
-    <!-- Loader -->
-    <div id="loader" class="loading-overlay">
-        <div class="flex flex-col items-center gap-4">
-            <div class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-            <p class="text-slate-500 font-medium animate-pulse">Synchronisation Cloud...</p>
-        </div>
-    </div>
+import React, { useState, useEffect } from 'react';
+import { DoorClosed, Smartphone, Frown, RefreshCw } from 'lucide-react';
 
-    <!-- Error Overlay (Hidden by default) -->
-    <div id="error-overlay" class="loading-overlay hidden bg-red-50/90 z-[110]">
-        <div class="max-w-md p-8 bg-white rounded-2xl shadow-xl text-center">
-            <i data-lucide="alert-triangle" class="w-12 h-12 text-red-500 mx-auto mb-4"></i>
-            <h3 class="text-lg font-bold mb-2">Configuration manquante</h3>
-            <p class="text-slate-600 text-sm mb-6">Cette application nécessite l'environnement Canvas pour la sauvegarde Cloud. Si vous êtes sur GitHub, la base de données n'est pas configurée.</p>
-            <button onclick="window.location.reload()" class="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium">Réessayer</button>
-        </div>
-    </div>
+export default function App() {
+  // --- ÉTAPE 1 : DÉFINITION DES DONNÉES DE L'ENQUÊTE ---
+  // Les options possibles. L'identifiant 2 est notre coupable.
+  const initialDoors = [
+    { id: 1, name: "Dans son sac" },
+    { id: 2, name: "En boite de nuit" },
+    { id: 3, name: "Chez Momoe et Pierre" },
+    { id: 4, name: "Avec son gros kebab devant les poubelles" }
+  ];
 
-    <div id="app" class="flex h-screen opacity-0 transition-opacity duration-500">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex">
-            <div class="p-6 border-b border-slate-100">
-                <div class="flex items-center gap-2 font-bold text-xl text-indigo-600">
-                    <i data-lucide="layout" class="w-6 h-6"></i>
-                    <span>DevBoard</span>
-                </div>
-            </div>
-            <div class="flex-1 overflow-y-auto p-4 space-y-6">
-                <div>
-                    <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 px-2">Projets</h3>
-                    <div id="project-list" class="space-y-1"></div>
-                    <button onclick="openProjectModal()" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-50 border border-dashed border-slate-200 mt-2 transition-all">
-                        <i data-lucide="plus" class="w-4 h-4"></i>
-                        <span>Nouveau projet</span>
-                    </button>
-                </div>
-            </div>
-            <div class="p-4 border-t border-slate-100">
-                <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-100">
-                    <div id="user-initials" class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">...</div>
-                    <div class="flex-1 overflow-hidden">
-                        <p class="text-sm font-medium truncate">Développeur</p>
-                        <p id="user-id-display" class="text-[9px] text-slate-500 truncate font-mono">Connexion...</p>
-                    </div>
-                </div>
-            </div>
-        </aside>
+  // --- ÉTAPE 2 : GESTION DE L'ÉTAT DU JEU ---
+  const [winningDoorId, setWinningDoorId] = useState(null);
+  const [selectedDoorId, setSelectedDoorId] = useState(null);
+  const [gameState, setGameState] = useState('playing'); // 'playing', 'won', 'lost'
 
-        <!-- Main Content -->
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <header class="h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <h2 id="active-project-name" class="text-lg font-semibold truncate max-w-[200px]">Chargement...</h2>
-                    <div class="h-4 w-[1px] bg-slate-200 hidden sm:block"></div>
-                    <div class="relative hidden sm:block">
-                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
-                        <input type="text" id="search-input" placeholder="Rechercher une tâche..." class="pl-10 pr-4 py-1.5 bg-slate-100 rounded-full text-sm border-none focus:ring-2 focus:ring-indigo-500 w-48 lg:w-64 transition-all focus:w-80">
-                    </div>
-                </div>
-                <button onclick="openTaskModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-md active:scale-95">
-                    <i data-lucide="plus" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">Créer un ticket</span>
-                    <span class="sm:hidden">Ticket</span>
-                </button>
-            </header>
+  // --- ÉTAPE 3 : LOGIQUE D'INITIALISATION TRUQUÉE ---
+  // Ici, le hasard n'existe plus. Valentine finit toujours en boîte.
+  const initGame = () => {
+    // La victoire est codée en dur sur l'ID 2 (En boite de nuit)
+    setWinningDoorId(2); 
+    setSelectedDoorId(null);
+    setGameState('playing');
+  };
 
-            <div class="flex-1 overflow-x-auto p-4 md:p-8 custom-scrollbar">
-                <div id="kanban-board" class="flex gap-6 h-full min-w-max pb-4"></div>
-            </div>
-        </main>
-    </div>
+  useEffect(() => {
+    initGame();
+  }, []);
 
-    <!-- Modal Task -->
-    <div id="task-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <h3 id="task-modal-title" class="font-bold text-lg">Nouveau ticket</h3>
-                <button onclick="closeModal('task-modal')" class="text-slate-400 hover:text-slate-600 p-1">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <form id="task-form" class="p-6 space-y-4">
-                <input type="hidden" id="edit-id">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Titre</label>
-                    <input id="task-title" required placeholder="Que faut-il faire ?" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
-                    <textarea id="task-desc" rows="3" placeholder="Détails, liens, contexte..." class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none transition-all"></textarea>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
-                        <select id="task-status" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                            <option value="todo">À faire</option>
-                            <option value="in-progress">En cours</option>
-                            <option value="review">Revue / Test</option>
-                            <option value="done">Terminé</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Priorité</label>
-                        <select id="task-priority" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                            <option value="low">Faible</option>
-                            <option value="medium">Moyenne</option>
-                            <option value="high">Haute</option>
-                            <option value="urgent">Urgent</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Type</label>
-                    <div class="flex gap-4">
-                        <label class="flex items-center gap-2 cursor-pointer group"><input type="radio" name="type" value="task" checked class="text-indigo-600 focus:ring-indigo-500"> <span class="text-sm group-hover:text-indigo-600">🛠 Task</span></label>
-                        <label class="flex items-center gap-2 cursor-pointer group"><input type="radio" name="type" value="bug" class="text-indigo-600 focus:ring-indigo-500"> <span class="text-sm group-hover:text-red-600">🐛 Bug</span></label>
-                        <label class="flex items-center gap-2 cursor-pointer group"><input type="radio" name="type" value="feature" class="text-indigo-600 focus:ring-indigo-500"> <span class="text-sm group-hover:text-yellow-600">⚡ Feature</span></label>
-                    </div>
-                </div>
-                <div class="pt-4 flex justify-between border-t border-slate-100">
-                    <button type="button" id="delete-btn" onclick="deleteCurrentTask()" class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium hidden transition-colors">Supprimer</button>
-                    <div class="flex gap-2 ml-auto">
-                        <button type="button" onclick="closeModal('task-modal')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors">Annuler</button>
-                        <button type="submit" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium shadow-md">Enregistrer</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
+  // --- ÉTAPE 4 : LOGIQUE DE CLIC ---
+  const handleDoorClick = (id) => {
+    if (gameState !== 'playing') return;
 
-    <!-- Project Modal -->
-    <div id="project-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
-            <div class="p-6">
-                <h3 class="font-bold text-lg mb-4">Nouveau Projet</h3>
-                <input id="new-project-name" placeholder="Nom de l'application..." class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none mb-4">
-                <div class="flex gap-2">
-                    <button onclick="closeModal('project-modal')" class="flex-1 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">Annuler</button>
-                    <button onclick="submitNewProject()" class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Créer</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    setSelectedDoorId(id);
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot, query, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    // On vérifie si l'utilisateur a compris la psychologie de Valentine
+    if (id === winningDoorId) {
+      setGameState('won');
+    } else {
+      setGameState('lost');
+    }
+  };
 
-        // --- Init ---
-        let db, auth, appId;
-        try {
-            const firebaseConfig = JSON.parse(__firebase_config);
-            const app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'devboard-kanban-default';
-        } catch (e) {
-            document.getElementById('error-overlay').classList.remove('hidden');
-            console.error("Firebase config missing");
-        }
+  // --- ÉTAPE 5 : COMMENTAIRES DÉSOBLIGEANTS ---
+  const getFeedbackMessage = () => {
+    if (gameState === 'playing') return "Valentine a encore perdu son précieux. Aide-la à le retrouver (même si on connaît tous la fin de l'histoire).";
+    if (gameState === 'won') return "Bingo. Évidemment qu'il était en boîte de nuit. C'était soit ça, soit dans le caniveau.";
+    if (gameState === 'lost') return "Sérieusement ? Tu pensais vraiment qu'elle l'avait rangé sagement ? Sois plus réaliste et recommence.";
+  };
 
-        // --- State ---
-        let projects = [];
-        let tasks = [];
-        let activeProjectId = localStorage.getItem('last_project_id') || null;
-        let searchTerm = '';
-        let currentUser = null;
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-6 font-sans">
+      
+      {/* En-tête */}
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-600">
+          Où est le portable de Valentine ?
+        </h1>
+        <p className="text-lg text-slate-400 max-w-lg mx-auto">
+          {getFeedbackMessage()}
+        </p>
+      </div>
 
-        const columns = [
-            { id: 'todo', title: 'À faire', color: 'bg-slate-100', icon: 'circle' },
-            { id: 'in-progress', title: 'En cours', color: 'bg-blue-50', icon: 'clock' },
-            { id: 'review', title: 'Revue / Test', color: 'bg-purple-50', icon: 'search' },
-            { id: 'done', title: 'Terminé', color: 'bg-green-50', icon: 'check-circle' },
-        ];
+      {/* La Grille des Lieux Suspects */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 w-full max-w-3xl">
+        {initialDoors.map((door) => {
+          const isSelected = selectedDoorId === door.id;
+          const isWinner = door.id === winningDoorId;
+          const isGameOver = gameState !== 'playing';
 
-        // --- Auth ---
-        const initAuth = async () => {
-            if (!auth) return;
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Auth error:", error);
-            }
-        };
+          // Style de base pour nos "portes"
+          let doorStyle = "bg-slate-800 border-slate-600 hover:border-pink-400 hover:bg-slate-700 cursor-pointer";
+          let Icon = DoorClosed;
+          let iconColor = "text-slate-400";
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                document.getElementById('user-id-display').innerText = user.uid.substring(0, 12) + "...";
-                document.getElementById('user-initials').innerText = user.uid.substring(0, 2).toUpperCase();
-                setupDataListeners();
-            }
-        });
-
-        // --- Firestore ---
-        const setupDataListeners = () => {
-            if (!currentUser) return;
-
-            // Projects
-            const projectsRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'projects');
-            onSnapshot(projectsRef, (snapshot) => {
-                projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                if (projects.length === 0) {
-                    createInitialProject();
-                } else {
-                    // Si projet actif invalide, on prend le premier
-                    if (!activeProjectId || !projects.find(p => p.id === activeProjectId)) {
-                        activeProjectId = projects[0].id;
-                    }
-                    render();
-                    hideLoader();
-                }
-            }, (err) => console.error("Projects sync error", err));
-
-            // Tasks
-            const tasksRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'tasks');
-            onSnapshot(tasksRef, (snapshot) => {
-                tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                render();
-            }, (err) => console.error("Tasks sync error", err));
-        };
-
-        const createInitialProject = async () => {
-            const projectsRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'projects');
-            const docRef = await addDoc(projectsRef, { name: 'Général', icon: '🏠' });
-            activeProjectId = docRef.id;
-        };
-
-        const hideLoader = () => {
-            const loader = document.getElementById('loader');
-            const appDiv = document.getElementById('app');
-            if (loader) {
-                loader.style.opacity = '0';
-                setTimeout(() => loader.remove(), 500);
-                appDiv.classList.remove('opacity-0');
-            }
-        };
-
-        // --- Render ---
-        window.render = () => {
-            // Sidebar projects
-            const projectList = document.getElementById('project-list');
-            projectList.innerHTML = projects.map(p => `
-                <button onclick="setActiveProject('${p.id}')" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${activeProjectId === p.id ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50'}">
-                    <span class="text-base">${p.icon || '📁'}</span>
-                    <span class="truncate">${p.name}</span>
-                </button>
-            `).join('');
-
-            const currentP = projects.find(p => p.id === activeProjectId);
-            document.getElementById('active-project-name').innerText = currentP ? currentP.name : "Sélectionner un projet";
-
-            // Kanban board
-            const board = document.getElementById('kanban-board');
-            if (!activeProjectId) {
-                board.innerHTML = '<div class="w-full flex flex-col items-center justify-center py-20 text-slate-400"><i data-lucide="folder" class="w-12 h-12 mb-4 opacity-20"></i><p>Aucun projet sélectionné</p></div>';
-                lucide.createIcons();
-                return;
-            }
-
-            const filteredTasks = tasks.filter(t => 
-                t.projectId === activeProjectId && 
-                (t.title.toLowerCase().includes(searchTerm.toLowerCase()) || (t.description || '').toLowerCase().includes(searchTerm.toLowerCase()))
-            );
-
-            board.innerHTML = columns.map(col => {
-                const colTasks = filteredTasks.filter(t => t.status === col.id);
-                return `
-                    <div class="w-72 md:w-80 flex flex-col h-full group">
-                        <div class="flex items-center justify-between mb-4 px-2">
-                            <div class="flex items-center gap-2">
-                                <i data-lucide="${col.icon}" class="w-4 h-4 ${col.id === 'done' ? 'text-green-500' : col.id === 'in-progress' ? 'text-blue-500' : 'text-slate-500'}"></i>
-                                <h3 class="font-semibold text-slate-700 text-sm uppercase tracking-wider">${col.title}</h3>
-                                <span class="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">${colTasks.length}</span>
-                            </div>
-                        </div>
-                        <div class="flex-1 rounded-2xl p-2 transition-all ${col.color} border-2 border-transparent hover:border-slate-200 overflow-y-auto space-y-3 custom-scrollbar column-min-height">
-                            ${colTasks.map(task => `
-                                <div onclick="openEditTaskModal('${task.id}')" class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-300 hover:shadow-md cursor-pointer transition-all active:scale-[0.98] group/card">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded border tracking-tighter ${getPriorityClass(task.priority)}">${task.priority}</span>
-                                        ${getTypeIcon(task.type)}
-                                    </div>
-                                    <h4 class="font-bold text-slate-800 text-sm mb-1 leading-snug">${task.title}</h4>
-                                    <p class="text-[11px] text-slate-500 line-clamp-2 mb-3 leading-relaxed">${task.description || '...'}</p>
-                                    <div class="flex items-center justify-between pt-3 border-t border-slate-50">
-                                        <div class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400">JD</div>
-                                        <button onclick="event.stopPropagation(); moveTaskForward('${task.id}')" class="p-1 hover:bg-slate-100 rounded-full text-slate-300 hover:text-indigo-600 transition-colors">
-                                            <i data-lucide="chevron-right" class="w-4 h-4"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            `).join('')}
-                            ${colTasks.length === 0 ? '<div class="h-20 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center text-slate-400 text-[11px] italic">Aucune tâche</div>' : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            lucide.createIcons();
-        };
-
-        // --- Handlers ---
-        function getPriorityClass(p) {
-            if (p === 'urgent') return 'bg-red-50 text-red-700 border-red-200';
-            if (p === 'high') return 'bg-orange-50 text-orange-700 border-orange-200';
-            if (p === 'medium') return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-            return 'bg-blue-50 text-blue-700 border-blue-200';
-        }
-
-        function getTypeIcon(type) {
-            if (type === 'bug') return '<i data-lucide="bug" class="w-3.5 h-3.5 text-red-500"></i>';
-            if (type === 'feature') return '<i data-lucide="zap" class="w-3.5 h-3.5 text-yellow-500"></i>';
-            return '<i data-lucide="code" class="w-3.5 h-3.5 text-blue-500"></i>';
-        }
-
-        window.setActiveProject = (id) => { 
-            activeProjectId = id; 
-            localStorage.setItem('last_project_id', id);
-            render(); 
-        };
-        
-        window.moveTaskForward = async (id) => {
-            const task = tasks.find(t => t.id === id);
-            const currentIndex = columns.findIndex(c => c.id === task.status);
-            const nextStatus = columns[(currentIndex + 1) % 4].id;
-            const taskRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tasks', id);
-            await updateDoc(taskRef, { status: nextStatus });
-        };
-
-        // Modals Project
-        window.openProjectModal = () => document.getElementById('project-modal').classList.remove('hidden');
-        window.submitNewProject = async () => {
-            const name = document.getElementById('new-project-name').value;
-            if (name && currentUser) {
-                const projectsRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'projects');
-                const docRef = await addDoc(projectsRef, { name, icon: '📂' });
-                activeProjectId = docRef.id;
-                closeModal('project-modal');
-                document.getElementById('new-project-name').value = '';
-            }
-        };
-
-        // Modals Tasks
-        window.openTaskModal = () => {
-            document.getElementById('edit-id').value = '';
-            document.getElementById('task-form').reset();
-            document.getElementById('task-modal-title').innerText = 'Nouveau ticket';
-            document.getElementById('delete-btn').classList.add('hidden');
-            document.getElementById('task-modal').classList.remove('hidden');
-        };
-
-        window.openEditTaskModal = (id) => {
-            const task = tasks.find(t => t.id === id);
-            if (!task) return;
-            document.getElementById('edit-id').value = task.id;
-            document.getElementById('task-title').value = task.title;
-            document.getElementById('task-desc').value = task.description || '';
-            document.getElementById('task-status').value = task.status;
-            document.getElementById('task-priority').value = task.priority;
-            const typeRadio = document.querySelector(`input[name="type"][value="${task.type}"]`);
-            if (typeRadio) typeRadio.checked = true;
+          // Changement de style si le jeu est terminé
+          if (isGameOver) {
+            doorStyle = "cursor-default opacity-60"; // Désactivé
             
-            document.getElementById('task-modal-title').innerText = 'Modifier le ticket';
-            document.getElementById('delete-btn').classList.remove('hidden');
-            document.getElementById('task-modal').classList.remove('hidden');
-        };
-
-        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
-
-        window.deleteCurrentTask = async () => {
-            const id = document.getElementById('edit-id').value;
-            if (id && currentUser) {
-                // On pourrait faire un modal de confirmation, ici on simplifie pour éviter confirm()
-                const taskRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tasks', id);
-                await deleteDoc(taskRef);
-                closeModal('task-modal');
+            if (isSelected) {
+              doorStyle = "opacity-100 shadow-xl scale-105 transition-transform duration-300 ";
+              if (isWinner) {
+                // Style de la victoire (Le portable est là)
+                doorStyle += "bg-emerald-900 border-emerald-500 shadow-emerald-900/50";
+                Icon = Smartphone;
+                iconColor = "text-emerald-400";
+              } else {
+                // Style de l'échec (Où tu as cliqué mais c'est faux)
+                doorStyle += "bg-rose-900 border-rose-500 shadow-rose-900/50";
+                Icon = Frown;
+                iconColor = "text-rose-400";
+              }
+            } else if (isWinner) {
+              // Révéler la vérité brutale même si on a cliqué ailleurs
+              doorStyle = "opacity-100 border-emerald-500/50 bg-emerald-900/30";
+              Icon = Smartphone;
+              iconColor = "text-emerald-500/50";
             }
-        };
+          }
 
-        document.getElementById('task-form').onsubmit = async (e) => {
-            e.preventDefault();
-            if (!currentUser || !activeProjectId) return;
+          return (
+            <button
+              key={door.id}
+              onClick={() => handleDoorClick(door.id)}
+              disabled={isGameOver}
+              className={`relative flex flex-col items-center justify-center p-8 rounded-xl border-2 transition-all duration-200 group text-center ${doorStyle}`}
+            >
+              <Icon size={56} className={`${iconColor} mb-4 ${!isGameOver && 'group-hover:scale-110 transition-transform'}`} />
+              {/* Utilisation de text-lg pour que le texte du kebab tienne bien */}
+              <span className="text-lg md:text-xl font-semibold tracking-wide">
+                {door.name}
+              </span>
+              
+              {/* Effet bling-bling pour le portable retrouvé */}
+              {isGameOver && isSelected && isWinner && (
+                <span className="absolute -top-3 -right-3 flex h-8 w-8">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-8 w-8 bg-emerald-500 justify-center items-center">📱</span>
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-            const id = document.getElementById('edit-id').value;
-            const taskData = {
-                projectId: activeProjectId,
-                title: document.getElementById('task-title').value,
-                description: document.getElementById('task-desc').value,
-                status: document.getElementById('task-status').value,
-                priority: document.getElementById('task-priority').value,
-                type: document.querySelector('input[name="type"]:checked').value
-            };
+      {/* Bouton pour répéter l'histoire */}
+      {gameState !== 'playing' && (
+        <button
+          onClick={initGame}
+          className="flex items-center gap-2 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-full font-bold transition-colors shadow-lg shadow-pink-600/20"
+        >
+          <RefreshCw size={20} />
+          Chercher à nouveau (en vain)
+        </button>
+      )}
 
-            if (id) {
-                const taskRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tasks', id);
-                await updateDoc(taskRef, taskData);
-            } else {
-                const tasksRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'tasks');
-                await addDoc(tasksRef, taskData);
-            }
-            closeModal('task-modal');
-        };
-
-        document.getElementById('search-input').oninput = (e) => {
-            searchTerm = e.target.value;
-            render();
-        };
-
-        // Start
-        initAuth();
-    </script>
-</body>
-</html>
+    </div>
+  );
+}
